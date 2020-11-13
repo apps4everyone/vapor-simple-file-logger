@@ -7,14 +7,14 @@
 
 import Vapor
 
-public final class SimpleFileLogger: Logger {
+public final class SimpleFileLogger {
 
     let executableName: String
     let includeTimestamps: Bool
     let fileManager = FileManager.default
-    let fileQueue = DispatchQueue.init(label: "vaporSimpleFileLogger", qos: .utility)
+    let fileQueue = DispatchQueue.init(label: "VaporSimpleFileLogger", qos: .utility)
     var fileHandles = [URL: Foundation.FileHandle]()
-    let excludeLogLevels: [LogLevel]
+    let excludeLogLevels: [Logger.Level]
 
     lazy var logDirectoryURL: URL? = {
         var baseURL: URL?
@@ -40,7 +40,7 @@ public final class SimpleFileLogger: Logger {
         return baseURL
     }()
 
-    public init(executableName: String = "Vapor", includeTimestamps: Bool = false, excludeLogLevels: [LogLevel] = []) {
+    public init(executableName: String = "Vapor", includeTimestamps: Bool = false, excludeLogLevels: [Logger.Level] = []) {
         // TODO: sanitize executableName for path use
         self.executableName = executableName
         self.includeTimestamps = includeTimestamps
@@ -53,8 +53,10 @@ public final class SimpleFileLogger: Logger {
         }
     }
 
-    public func log(_ string: String, at level: LogLevel, file: String, function: String, line: UInt, column: UInt) {
+    public func log(_ string: String, at level: Logger.Level, file: String, function: String, line: UInt, column: UInt) {
+       
         guard !excludeLogLevels.contains(where: { $0.description == level.description }) else { return }
+        
         let fileName = level.description.lowercased() + ".log"
         var output = "[ \(level.description) ] \(string) (\(file):\(line))"
         if includeTimestamps {
@@ -64,6 +66,7 @@ public final class SimpleFileLogger: Logger {
     }
 
     func saveToFile(_ string: String, fileName: String) {
+        
         guard let baseURL = logDirectoryURL else { return }
 
         fileQueue.async {
@@ -100,14 +103,13 @@ public final class SimpleFileLogger: Logger {
 
 }
 
-extension SimpleFileLogger: ServiceType {
-
-    public static var serviceSupports: [Any.Type] {
-        return [Logger.self]
+extension Application {
+    
+    private static var fileLogger = SimpleFileLogger()
+    
+    var simpleFileLogger: SimpleFileLogger {
+        get {
+            return Application.fileLogger
+        }
     }
-
-    public static func makeService(for worker: Container) throws -> SimpleFileLogger {
-        return SimpleFileLogger()
-    }
-
 }
